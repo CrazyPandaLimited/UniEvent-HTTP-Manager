@@ -165,6 +165,8 @@ WorkerPtr PreFork::create_worker () {
     // release manager's resources
     check_timer->stop();
     check_timer.reset();
+    check_termination_timer->stop();
+    check_termination_timer.reset();
     sigchld->stop();
     sigchld.reset();
     sigint->stop();
