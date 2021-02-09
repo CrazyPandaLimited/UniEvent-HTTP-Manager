@@ -27,7 +27,6 @@ void Child::init (ServerParams p) {
 
         req->finish_event.add([this](auto&) {
             send_active_requests(--reqcnt.active);
-            if (terminating && !reqcnt.active) termination_control();
         });
     });
 
@@ -52,17 +51,11 @@ void Child::terminate () {
     panda_log_info("worker: terminating...");
     if (terminating) return;
     terminating = true;
+    server->stop_event.add([this]() {
+        panda_log_debug("worker: server stopped. unblocking loop...");
+        loop->stop();
+    });
     server->graceful_stop();
-    //server->stop_listening();
-}
-
-void Child::termination_control () {
-    panda_log_debug("worker: last request completed, waiting for loop to unblock...");
-    //termination_timer = Timer::once(10000, [this](auto&) {
-    //    panda_log_notice("worker: loop is still running, forcing loop stop");
-    //    loop->stop();
-    //});
-    //termination_timer->weak(true);
 }
 
 }}}}
