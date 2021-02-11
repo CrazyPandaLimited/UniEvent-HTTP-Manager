@@ -13,8 +13,9 @@ struct Child {
         Manager::request_cd&        request_event;
     };
 
-    virtual void init (ServerParams);
-    virtual void run  ();
+    virtual void init      (ServerParams);
+    virtual void run       ();
+    virtual void terminate ();
 
     virtual ~Child () {}
 
@@ -23,7 +24,6 @@ protected:
     ServerSP server;
     TimerSP  la_timer;
     bool     terminating = false;
-    TimerSP  termination_timer;
 
     struct {
         uint32_t active = 0;
@@ -31,12 +31,8 @@ protected:
         uint32_t recent = 0;
     } reqcnt;
 
-    virtual void send_ready           () = 0;
     virtual void send_active_requests (uint32_t) = 0;
     virtual void send_activity        (time_t now, float la, uint32_t total_requests) = 0;
-
-    void terminate ();
-    void termination_control ();
 };
 
 }}}}

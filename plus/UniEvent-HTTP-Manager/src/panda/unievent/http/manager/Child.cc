@@ -1,5 +1,4 @@
 #include "Child.h"
-#include <ios>
 #include <iomanip>
 #include <thread>
 
@@ -31,7 +30,7 @@ void Child::init (ServerParams p) {
     });
 
     la_timer = Timer::start(1000, [this](auto&) {
-        panda_log_debug("worker: load average=" << std::setprecision(2) << std::fixed << loop->get_load_average() << " " << reqcnt.recent << " req/s, total " << reqcnt.total << " reqs");
+        panda_log_debug("worker: load average=" << std::setprecision(3) << std::fixed << loop->get_load_average() << " " << reqcnt.recent << " req/s, total " << reqcnt.total << " reqs");
         reqcnt.recent = 0;
         send_activity(std::time(NULL), loop->get_load_average(), reqcnt.total);
     }, loop);
@@ -41,8 +40,7 @@ void Child::init (ServerParams p) {
 void Child::run () {
     panda_log_info("worker: running");
     server->run();
-    send_activity(std::time(NULL), 0, 0);
-    send_ready();
+    send_activity(std::time(NULL), 0, 0); // mark as ready
     loop->run();
     panda_log_info("worker: end running, total requests served: " << reqcnt.total);
 }

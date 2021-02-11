@@ -7,8 +7,9 @@ struct Thread : Mpm {
     Thread (const Config&, const LoopSP&);
 
     void      run           () override;
-    void      fetch_state   () override;
     WorkerPtr create_worker () override;
+    void      stop          () override;
+    void      stopped       () override;
 };
 
 }}}}

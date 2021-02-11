@@ -1,5 +1,6 @@
 #include "Mpm.h"
 #include "math.h"
+#include <iomanip>
 
 #ifdef _WIN32
     #include "windows.icc"
@@ -86,7 +87,6 @@ std::vector<Worker*> Mpm::get_workers (int states) {
 
 void Mpm::check_workers () {
     fetch_state();
-
     kill_not_responding();
     terminate_restared_workers();
     autorestart_workers();
@@ -106,7 +106,7 @@ void Mpm::check_workers () {
 
     float avgload = cnt.total ? sumload / cnt.total : 0;
 
-    panda_log_debug("servers total=" << cnt.total << ", inactive=" << cnt.inactive << ", load average=" << avgload);
+    panda_log_debug("servers total=" << cnt.total << ", inactive=" << cnt.inactive << ", load average=" << std::setprecision(3) << std::fixed << avgload);
 
     // first check if we have too few workers
     uint32_t needed[] = {0,0,0};
@@ -141,6 +141,15 @@ void Mpm::check_workers () {
         panda_log_debug("wanted to terminate by: max_spare_servers=" << wanted[0] << " min_load=" << wanted[1] << ". Allowed by min_servers " << max_to_term);
         panda_log_info("terminating " << cnt_to_term << " servers");
         terminate_workers(cnt_to_term);
+    }
+}
+
+void Mpm::fetch_state () {
+    for (auto& row : workers) {
+        auto worker = row.second.get();
+        worker->fetch_state();
+        // worker is ready when it first sends activity stats
+        if (worker->state == Worker::State::starting && worker->activity_time) worker->state = Worker::State::running;
     }
 }
 

@@ -19,8 +19,9 @@ struct Worker {
     uint64_t replaced_by      = 0;
     time_t   termination_time = 0;
 
-    virtual void terminate () = 0;
-    virtual void kill      () = 0;
+    virtual void fetch_state () = 0;
+    virtual void terminate   () = 0;
+    virtual void kill        () = 0;
 
     virtual ~Worker () {}
 };
@@ -54,7 +55,6 @@ protected:
     SignalSP sigint;
     Workers  workers;
 
-    virtual void      fetch_state       () = 0;
     virtual WorkerPtr create_worker     () = 0;
     void              worker_terminated (Worker*);
     virtual void      stopped           ();
@@ -64,6 +64,7 @@ private:
     std::vector<Worker*> get_workers (Worker::State state) { return get_workers((int)state); }
 
     void check_workers              ();
+    void fetch_state                ();
     void terminate_restared_workers ();
     void autorestart_workers        ();
     void kill_not_responding        ();

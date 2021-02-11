@@ -14,7 +14,6 @@ struct Shmem {
         std::atomic<uint32_t> activity_time;
         std::atomic<uint8_t>  load_average;
         std::atomic<uint32_t> total_requests;
-        std::atomic<bool>     ready;
     };
 
     void* mapped_mem = nullptr;
@@ -36,6 +35,22 @@ struct Shmem {
 struct PreForkWorker : Worker, Shmem {
     using Worker::Worker;
     pid_t pid;
+
+    PreForkWorker () {
+        mapped_mem = mmap(nullptr, sizeof(Shmem::Shdata), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        if (mapped_mem == MAP_FAILED) throw exception("could not map shared memory");
+        shmem().active_requests = 0;
+        shmem().activity_time   = 0;
+        shmem().load_average    = 0;
+        shmem().total_requests  = 0;
+    }
+
+    void fetch_state () override {
+        active_requests = shmem().active_requests;
+        load_average    = (float)shmem().load_average / 100;
+        activity_time   = (time_t)shmem().activity_time;
+        total_requests  = shmem().total_requests;
+    }
 
     void terminate () override {
         panda_log_info("master process: terminate worker pid=" << pid);
@@ -70,10 +85,6 @@ struct PreForkChild : Child, Shmem {
         Child::run();
         panda_log_info("worker process: exiting");
         std::exit(0);
-    }
-
-    void send_ready () override {
-        shmem().ready = true;
     }
 
     void send_active_requests (uint32_t areqs) override {
@@ -129,24 +140,8 @@ void PreFork::handle_sigchld () {
     }
 }
 
-void PreFork::fetch_state () {
-    for (auto& row : workers) {
-        auto worker = static_cast<PreForkWorker*>(row.second.get());
-        worker->active_requests = worker->shmem().active_requests;
-        worker->load_average    = (float)worker->shmem().load_average / 100;
-        worker->activity_time   = (time_t)worker->shmem().activity_time;
-        worker->total_requests  = worker->shmem().total_requests;
-        if (worker->state == Worker::State::starting && worker->shmem().ready) worker->state = Worker::State::running;
-    }
-}
-
 WorkerPtr PreFork::create_worker () {
     auto worker = std::make_unique<PreForkWorker>();
-    worker->mapped_mem = mmap(nullptr, sizeof(Shmem::Shdata), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-
-    if (worker->mapped_mem == MAP_FAILED) throw exception("could not map shared memory");
-    worker->shmem().active_requests = 0;
-    worker->shmem().ready = false;
 
     auto pid = fork();
     if (pid == -1) throw exception("could not fork worker");
@@ -163,13 +158,9 @@ WorkerPtr PreFork::create_worker () {
     }
 
     // release manager's resources
-    check_timer->stop();
     check_timer.reset();
-    check_termination_timer->stop();
     check_termination_timer.reset();
-    sigchld->stop();
     sigchld.reset();
-    sigint->stop();
     sigint.reset();
 
     auto child = std::make_unique<PreForkChild>();

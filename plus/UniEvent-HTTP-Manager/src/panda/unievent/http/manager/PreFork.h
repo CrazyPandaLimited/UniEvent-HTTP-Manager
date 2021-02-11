@@ -8,7 +8,6 @@ struct PreFork : Mpm {
     using Mpm::Mpm;
 
     void      run           () override;
-    void      fetch_state   () override;
     WorkerPtr create_worker () override;
     void      stop          () override;
     void      stopped       () override;
