@@ -109,6 +109,11 @@ WorkerPtr Thread::create_worker () {
             else if (shared.terminate) child.terminate();
         });
 
+        auto config = this->config; // copy
+        if (config.bind_model == Manager::BindModel::Duplicate) { // we need to dup sockets
+            for (auto& loc : config.server.locations) loc.sock = sock_dup(loc.sock.value());
+        }
+
         child.init({loop, config, server_factory, spawn_event, request_event});
         init_promise.set_value(true);
 
