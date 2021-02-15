@@ -15,8 +15,9 @@ static uint64_t lastid;
 Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop), config(_config) {
     if (!loop) loop = Loop::default_loop();
 
-    if (!config.check_interval)    config.check_interval    = 1;
-    if (!config.max_servers)       config.max_servers       = config.min_servers * 3;
+    if (!config.check_interval || !config.load_average_period) throw exception("check_interval, load_average_period must not be zero");
+
+    if (!config.max_servers) config.max_servers = config.min_servers * 3;
 
     if (!config.max_spare_servers && config.min_spare_servers) {
         config.max_spare_servers = std::min(config.min_spare_servers + config.min_servers, config.max_servers);
@@ -98,6 +99,13 @@ void Mpm::check_workers () {
 
     float sumload = 0;
 
+    uint64_t recent_requests = 0;
+    for (auto& row : workers) recent_requests += row.second->recent_requests;
+    auto prev_time = last_check_time;
+    loop->update_time();
+    last_check_time = loop->now();
+    float req_speed = recent_requests * 1000 / (last_check_time == prev_time ? 1 : last_check_time - prev_time);
+
     for (auto w : get_workers((int)Worker::State::starting | (int)Worker::State::running)) {
         ++cnt.total;
         sumload += w->load_average;
@@ -106,7 +114,12 @@ void Mpm::check_workers () {
 
     float avgload = cnt.total ? sumload / cnt.total : 0;
 
-    panda_log_debug("servers total=" << cnt.total << ", inactive=" << cnt.inactive << ", load average=" << std::setprecision(3) << std::fixed << avgload);
+    panda_log_debug(
+        "servers total=" << cnt.total <<
+        ", inactive=" << cnt.inactive <<
+        ", load average=" << std::setprecision(3) << std::fixed << avgload <<
+        ", reqs=" << std::setprecision(req_speed > 10 ? 0 : 1) << std::fixed << req_speed << " reqs/s"
+    );
 
     // first check if we have too few workers
     uint32_t needed[] = {0,0,0};

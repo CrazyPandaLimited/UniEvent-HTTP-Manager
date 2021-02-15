@@ -15,6 +15,7 @@ struct Worker {
     time_t   activity_time;
     size_t   active_requests  = 0;
     size_t   total_requests   = 0;
+    size_t   recent_requests  = 0;
     float    load_average     = 0;
     uint64_t replaced_by      = 0;
     time_t   termination_time = 0;
@@ -54,6 +55,7 @@ protected:
     TimerSP  check_termination_timer;
     SignalSP sigint;
     Workers  workers;
+    uint64_t last_check_time = 0;
 
     virtual WorkerPtr create_worker     () = 0;
     void              worker_terminated (Worker*);

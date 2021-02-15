@@ -13,18 +13,19 @@ struct Manager : Refcnt {
 
     struct Config {
         Server::Config server;
-        uint32_t       min_servers = 1;         // The minimum number of servers to keep running
-        uint32_t       max_servers = 0;         // The maximum number of child servers to start. [min_servers*3]
-        uint32_t       min_spare_servers = 0;   // The minimum number of servers to have waiting for requests. [min_servers/4 + 1]
-        uint32_t       max_spare_servers = 0;   // The maximum number of servers to have waiting for requests. [min_servers]
-        float          min_load = 0;            // minimum average loop load on workers [0-1]
-        float          max_load = 0;            // maximum average loop load on workers [0-1]
-        uint32_t       max_requests = 0;        // Number of the requests to process per one worker process [0=unlimited]
-        uint32_t       min_worker_ttl = 60;     // Minimum number of seconds between starting children and killing a child process
-        uint32_t       check_interval = 1;      // Seconds to wait before checking to see if we can kill off some waiting servers or if we need to spawn more workers
-        uint32_t       activity_timeout = 0;    // kill worker if it's not responding for this number of seconds [0=disable]
-        uint32_t       termination_timeout = 0; // kill worker if it's not terminated after this number of seconds [0=disable]
-        WorkerModel    worker_model =           // Multi-processing module type
+        uint32_t       min_servers = 1;           // The minimum number of servers to keep running
+        uint32_t       max_servers = 0;           // The maximum number of child servers to start. [min_servers*3]
+        uint32_t       min_spare_servers = 0;     // The minimum number of servers to have waiting for requests.
+        uint32_t       max_spare_servers = 0;     // The maximum number of servers to have waiting for requests. [min_spare_server + min_servers, if min_spare_servers]
+        float          min_load = 0;              // minimum average loop load on workers {0-1} [max_load/2 if max_load]
+        float          max_load = 0;              // maximum average loop load on workers {0-1} [0.7 if !min_spare_servers]
+        uint32_t       load_average_period = 3;   // number of seconds to collect load average for, on workers
+        uint32_t       max_requests = 0;          // max number of the requests to process per one worker process [0=unlimited]
+        uint32_t       min_worker_ttl = 60;       // Minimum number of seconds between starting and killing a worker
+        float          check_interval = 1;        // interval between checking to see if we can kill off some waiting servers or if we need to spawn more workers
+        uint32_t       activity_timeout = 0;      // kill worker if it's not responding for this number of seconds [0=disable]
+        uint32_t       termination_timeout = 0;   // kill worker if it's not terminated after this number of seconds [0=disable]
+        WorkerModel    worker_model =             // Multi-processing module type
             #ifdef _WIN32
                 WorkerModel::Thread;
             #else

@@ -23,6 +23,7 @@ protected:
     LoopSP   loop;
     ServerSP server;
     TimerSP  la_timer;
+    uint64_t la_last_time = 0;
     bool     terminating = false;
 
     struct {
@@ -32,7 +33,7 @@ protected:
     } reqcnt;
 
     virtual void send_active_requests (uint32_t) = 0;
-    virtual void send_activity        (time_t now, float la, uint32_t total_requests) = 0;
+    virtual void send_activity        (time_t now, float la, uint32_t total_requests, uint32_t recent_requests) = 0;
 };
 
 }}}}

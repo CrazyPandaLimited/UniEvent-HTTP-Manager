@@ -14,6 +14,7 @@ struct Shmem {
         std::atomic<uint32_t> activity_time;
         std::atomic<uint8_t>  load_average;
         std::atomic<uint32_t> total_requests;
+        std::atomic<uint32_t> recent_requests;
     };
 
     void* mapped_mem = nullptr;
@@ -50,6 +51,8 @@ struct PreForkWorker : Worker, Shmem {
         load_average    = (float)shmem().load_average / 100;
         activity_time   = (time_t)shmem().activity_time;
         total_requests  = shmem().total_requests;
+        recent_requests = shmem().recent_requests;
+        shmem().recent_requests -= recent_requests;
     }
 
     void terminate () override {
@@ -91,14 +94,15 @@ struct PreForkChild : Child, Shmem {
         shmem().active_requests = areqs;
     }
 
-    void send_activity (time_t now, float la, uint32_t total_requests) override {
+    void send_activity (time_t now, float la, uint32_t total_requests, uint32_t recent_requests) override {
         if (kill(master_pid, 0) != 0) {
             panda_log_info("worker: master process died, exiting...");
             std::exit(0);
         }
-        shmem().load_average   = la * 100;
-        shmem().activity_time  = (uint32_t)now;
-        shmem().total_requests = total_requests;
+        shmem().load_average     = la * 100;
+        shmem().activity_time    = (uint32_t)now;
+        shmem().total_requests   = total_requests;
+        shmem().recent_requests += recent_requests;
     }
 };
 

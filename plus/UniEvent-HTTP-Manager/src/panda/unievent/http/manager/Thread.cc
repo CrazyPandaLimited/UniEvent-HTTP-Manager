@@ -18,6 +18,7 @@ struct ThreadWorker : Worker {
         std::atomic<time_t>    activity_time;
         std::atomic<float>     load_average;
         std::atomic<uint32_t>  total_requests;
+        std::atomic<uint32_t> recent_requests;
         std::atomic<bool>      terminate;
         std::atomic<bool>      die;
     } shared;
@@ -36,6 +37,8 @@ struct ThreadWorker : Worker {
         load_average    = shared.load_average;
         activity_time   = shared.activity_time;
         total_requests  = shared.total_requests;
+        recent_requests = shared.recent_requests;
+        shared.recent_requests -= recent_requests;
     }
 
     void terminate () override {
@@ -69,10 +72,11 @@ struct ThreadChild : Child {
         shared.active_requests = areqs;
     }
 
-    void send_activity (time_t now, float la, uint32_t total_requests) override {
-        shared.load_average   = la;
-        shared.activity_time  = now;
-        shared.total_requests = total_requests;
+    void send_activity (time_t now, float la, uint32_t total_requests, uint32_t recent_requests) override {
+        shared.load_average    = la;
+        shared.activity_time   = now;
+        shared.total_requests  = total_requests;
+        shared.recent_requests = recent_requests;
     }
 };
 
