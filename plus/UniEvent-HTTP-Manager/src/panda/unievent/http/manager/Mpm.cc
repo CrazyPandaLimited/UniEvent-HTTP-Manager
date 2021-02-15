@@ -238,7 +238,7 @@ void Mpm::terminate_workers (uint32_t cnt) {
     }
     panda_log_info("want to terminate " << cnt << " servers, allowed to terminate " << victims.size() << " servers");
 
-    std::sort(victims.begin(), victims.end(), [this](auto a, auto b) { return a->total_requests > b->total_requests; });
+    std::sort(victims.begin(), victims.end(), [](auto a, auto b) { return a->total_requests > b->total_requests; });
 
     for (uint32_t i = 0; i < cnt && i < victims.size(); ++i) terminate_worker(victims[i]);
 }

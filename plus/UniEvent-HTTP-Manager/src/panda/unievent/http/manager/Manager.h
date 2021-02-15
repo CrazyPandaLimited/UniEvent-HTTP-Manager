@@ -31,7 +31,7 @@ struct Manager : Refcnt {
             #else
                 WorkerModel::PreFork;
             #endif
-        BindModel      bind_model = BindModel::Duplicate; // how to bind http server sockets in workers
+        BindModel      bind_model = BindModel::ReusePort; // how to bind http server sockets in workers
     };
 
     using start_fptr        = void();
