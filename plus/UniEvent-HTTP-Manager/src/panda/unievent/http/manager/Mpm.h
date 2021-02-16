@@ -39,10 +39,13 @@ struct Mpm {
 
     Mpm (const Config&, const LoopSP&);
 
-    const LoopSP& get_loop () const { return loop; }
+    const LoopSP& get_loop   () const { return loop; }
+    const Config& get_config () const { return config; }
 
     virtual void run  ();
     virtual void stop ();
+
+    virtual excepted<void, string> reconfigure (const Config&);
 
     virtual ~Mpm ();
 
@@ -76,6 +79,10 @@ private:
     void    terminate_workers (uint32_t cnt);
     void    terminate_worker  (Worker*);
     void    kill_worker       (Worker*);
+    Worker* restart_worker    (Worker*);
+
+    excepted<void, string> create_and_bind_sockets (Config&);
+    void close_socket (sock_t);
 };
 
 }}}}

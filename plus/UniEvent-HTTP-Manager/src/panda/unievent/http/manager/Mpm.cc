@@ -12,10 +12,12 @@ namespace panda { namespace unievent { namespace http { namespace manager {
 
 static uint64_t lastid;
 
-Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop), config(_config) {
-    if (!loop) loop = Loop::default_loop();
+static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _config) {
+    auto config = _config;
 
-    if (!config.check_interval || !config.load_average_period) throw exception("check_interval, load_average_period must not be zero");
+    if (!config.check_interval || !config.load_average_period) {
+        return make_unexpected<string>("check_interval, load_average_period must not be zero");
+    }
 
     if (!config.max_servers) config.max_servers = config.min_servers * 3;
 
@@ -26,10 +28,18 @@ Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop), config(_con
     if (!config.max_load && !config.min_spare_servers) config.max_load = 0.7;
     if (!config.min_load && config.max_load) config.min_load = config.max_load / 2;
 
-    if (config.min_servers > config.max_servers) throw exception("max_servers should be equal to or higher than min_servers");
-    if (config.min_spare_servers > config.max_spare_servers) throw exception("min_spare_servers should be lower than or equal to max_spare_servers");
-    if (config.min_spare_servers >= config.max_servers) throw exception("min_spare_servers should be lower than max_servers");
-    if (config.max_spare_servers > config.max_servers) throw exception("max_spare_servers should be equal to or lower than max_servers");
+    if (config.min_servers > config.max_servers) {
+        return make_unexpected<string>("max_servers should be equal to or higher than min_servers");
+    }
+    if (config.min_spare_servers > config.max_spare_servers) {
+        return make_unexpected<string>("min_spare_servers should be lower than or equal to max_spare_servers");
+    }
+    if (config.min_spare_servers >= config.max_servers) {
+        return make_unexpected<string>("min_spare_servers should be lower than max_servers");
+    }
+    if (config.max_spare_servers > config.max_servers) {
+        return make_unexpected<string>("max_spare_servers should be equal to or lower than max_servers");
+    }
 
     // if at least one location has socket, we switch to duplication mode
     for (auto& row : config.server.locations) {
@@ -42,6 +52,12 @@ Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop), config(_con
     if (config.bind_model == Manager::BindModel::ReusePort) {
         for (auto& row : config.server.locations) row.reuse_port = true;
     }
+
+    return config;
+}
+
+Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop), config(normalize_config(_config).value()) {
+    if (!loop) loop = Loop::default_loop();
 }
 
 void Mpm::run () {
@@ -58,24 +74,30 @@ void Mpm::run () {
 
     sigint = Signal::watch(SIGINT, [this](auto...){ stop(); }, loop);
 
-    if (config.bind_model == Manager::BindModel::Duplicate) {
-        // in duplication model we need to create bound sockets for every location in master process
-        for (auto& loc : config.server.locations) {
-            if (!loc.host && !loc.sock) throw HttpError("neither host nor socket defined in one of the locations");
-            if (loc.sock) continue; // any user-supplied socket is transferred for our ownership so we don't need to do anything
-            // here we create temporary tcp for cross-platform socket, resolve and bind
-            TcpSP tcp = new Tcp(loop);
-            tcp->bind(loc.host, loc.port);
-            // we can't detach socket from tcp handle (it will close the socket) so that we duplicate it to leave socket opened
-            auto sock = tcp->socket().value();
-            loc.sock = sock_dup(sock);
-            tcp->reset();
-        }
-    }
+    if (config.bind_model != Manager::BindModel::Duplicate) create_and_bind_sockets(config);
 
     loop->delay([this]{ check_workers(); });
 
     loop->run();
+}
+
+excepted<void, string> Mpm::create_and_bind_sockets (Config& config) {
+    // in duplication model we need to create bound sockets for every location in master process
+    for (auto& loc : config.server.locations) {
+        if (loc.sock) {
+            loc.host = ""; // any user-supplied socket is transferred for our ownership so we don't need to do anything
+        } else if (loc.host) {
+            // here we create temporary tcp for cross-platform creation of socket, resolve and bind
+            TcpSP tcp = new Tcp(loop);
+            auto res = tcp->bind(loc.host, loc.port);
+            if (!res) return make_unexpected<string>(res.error().what());
+            // we can't detach socket from tcp handle (it will close the socket) so that we duplicate it to leave socket opened
+            loc.sock = sock_dup(tcp->socket().value());
+        } else {
+            return make_unexpected<string>("neither host nor socket defined in one of the locations");
+        }
+    }
+    return {};
 }
 
 std::vector<Worker*> Mpm::get_workers (int states) {
@@ -140,18 +162,16 @@ void Mpm::check_workers () {
     }
 
     // now check if we have too many workers
-    assert(cnt.total <= config.max_servers);
-
-    uint32_t wanted[2] = {0,0};
-
-    if (config.max_spare_servers && cnt.inactive > config.max_spare_servers) wanted[0] = cnt.inactive - config.max_spare_servers;
-    if (config.min_load && avgload < config.min_load)                        wanted[1] = cnt.total - uint32_t(sumload / config.min_load);
+    uint32_t wanted[3] = {0,0,0};
+    if (cnt.total > config.max_servers)                                      wanted[0] = cnt.total - config.max_servers;
+    if (config.max_spare_servers && cnt.inactive > config.max_spare_servers) wanted[1] = cnt.inactive - config.max_spare_servers;
+    if (config.min_load && avgload < config.min_load)                        wanted[2] = cnt.total - uint32_t(sumload / config.min_load);
 
     uint32_t max_to_term = cnt.total - config.min_servers;
-    uint32_t cnt_to_term = std::min(max_to_term, std::max(wanted[0], wanted[1]));
+    uint32_t cnt_to_term = std::min(max_to_term, std::max({wanted[0], wanted[1], wanted[2]}));
 
     if (cnt_to_term) {
-        panda_log_debug("wanted to terminate by: max_spare_servers=" << wanted[0] << " min_load=" << wanted[1] << ". Allowed by min_servers " << max_to_term);
+        panda_log_debug("wanted to terminate by: max_servers=" << wanted[0] << " max_spare_servers=" << wanted[1] << " min_load=" << wanted[2] << ". Allowed by min_servers " << max_to_term);
         panda_log_info("terminating " << cnt_to_term << " servers");
         terminate_workers(cnt_to_term);
     }
@@ -187,18 +207,40 @@ void Mpm::kill_not_terminated () {
 }
 
 void Mpm::terminate_restared_workers () {
-    for (auto w : get_workers(Worker::State::restarting)) {
-        auto it = workers.find(w->replaced_by);
-        if (it == workers.end()) {
-            // it seems restarting worker died. return worker to normal state to retry
-            panda_log_warning("master: restarting worker died");
-            w->replaced_by = 0;
-            w->state = Worker::State::running;
+    // find the first and the last worker in chain "restarting" -> "restarting" -> ... -> "starting/running"
+    // terminate all the chain if the last worker is running
+    auto list = get_workers(Worker::State::restarting);
+
+    std::map<uint64_t, Worker*> replaced_by_index;
+    for (auto w : list) {
+        assert(w->replaced_by);
+        assert(!replaced_by_index.count(w->replaced_by));
+        replaced_by_index[w->replaced_by] = w;
+    }
+
+    for (auto w : list) {
+        if (replaced_by_index.count(w->id)) continue;
+        auto last = w;
+        while (last->replaced_by) {
+            auto it = workers.find(last->replaced_by);
+            if (it == workers.end()) {
+                panda_log_warning("master: restarting worker died, spawning another one...");
+                restart_worker(last);
+                continue;
+            }
+            last = it->second.get();
         }
-        else if (it->second->state == Worker::State::running) {
-            // restarting worker ready
-            panda_log_info("master: restarting worker ready");
-            terminate_worker(w);
+
+        if (last->state == Worker::State::starting) continue;
+        assert(last->state == Worker::State::running);
+
+        panda_log_info("master: restarting worker ready");
+        auto curw = w;
+        while (curw != last) {
+            assert(curw->state == Worker::State::restarting);
+            auto nextid = curw->replaced_by;
+            terminate_worker(curw);
+            curw = workers.at(nextid).get();
         }
     }
 }
@@ -209,9 +251,7 @@ void Mpm::autorestart_workers () {
     for (auto w : get_workers(Worker::State::running)) {
         if (w->total_requests < config.max_requests || now - w->creation_time <= config.min_worker_ttl) continue;
         panda_log_notice("master: worker id=" << w->id << " max requests reached, restarting...");
-        auto restarting_worker = spawn();
-        w->state = Worker::State::restarting;
-        w->replaced_by = restarting_worker->id;
+        restart_worker(w);
     }
 }
 
@@ -254,6 +294,13 @@ void Mpm::kill_worker (Worker* worker) {
     worker->kill();
 }
 
+Worker* Mpm::restart_worker (Worker* worker) {
+    auto restarting_worker = spawn();
+    worker->state = Worker::State::restarting;
+    worker->replaced_by = restarting_worker->id;
+    return restarting_worker;
+}
+
 void Mpm::worker_terminated (Worker* worker) {
     switch (worker->state) {
         case Worker::State::starting    : panda_log_critical("master: starting worker died"); break;
@@ -284,13 +331,10 @@ void Mpm::stop () {
     state = State::stopping;
     check_timer.reset();
 
-    // we need to close all sockets we've created
     if (config.bind_model == Manager::BindModel::Duplicate) {
+        // we need to close all sockets we've created
         for (auto& loc : config.server.locations) {
-            // to cross-platform close a socket, we create tcp handle and transfer socket ownership to it. it will close it on destruction
-            TcpSP h = new Tcp(loop);
-            h->open(loc.sock.value());
-            h = nullptr;
+            if (loc.sock) close_socket(loc.sock.value());
         }
     }
 
@@ -301,7 +345,7 @@ void Mpm::stop () {
 
     for (auto& worker : get_workers()) {
         switch (worker->state) {
-            case Worker::State::starting    : kill_worker(worker); break;
+            case Worker::State::starting    :
             case Worker::State::restarting  :
             case Worker::State::running     : terminate_worker(worker); break;
             default : break;
@@ -309,11 +353,87 @@ void Mpm::stop () {
     }
 }
 
+void Mpm::close_socket (sock_t sock) {
+    // to cross-platform close a socket, we create tcp handle and transfer socket ownership to it. it will close it on destruction
+    TcpSP h = new Tcp(loop);
+    h->open(sock);
+    h.reset();
+}
+
 void Mpm::stopped () {
     check_termination_timer.reset();
     sigint.reset();
     state = State::stopped;
     loop->stop();
+}
+
+static bool need_restart_workers (const Mpm::Config& a, const Mpm::Config& b) {
+    return true;
+}
+
+excepted<void, string> Mpm::reconfigure (const Config& _newcfg) {
+    auto res = normalize_config(_newcfg);
+    if (!res) return make_unexpected(res.error());
+    auto& newcfg = res.value();
+
+    if (newcfg.worker_model != config.worker_model) {
+        return make_unexpected<string>("changing worker model is not allowed");
+    }
+    if (newcfg.bind_model != config.bind_model) {
+        return make_unexpected<string>("changing bind model is not allowed");
+    }
+
+    auto need_restart = need_restart_workers(config, newcfg);
+
+    if (need_restart && config.bind_model == Manager::BindModel::Duplicate) {
+        auto& newlocs = newcfg.server.locations;
+        for (auto& loc : config.server.locations) {
+            auto it = newlocs.end();
+
+            if (loc.host) {
+                it = std::find_if(newlocs.begin(), newlocs.end(), [&loc](auto& elem) {
+                    return elem.host == loc.host && elem.port == loc.port;
+                });
+            } else {
+                it = std::find_if(newlocs.begin(), newlocs.end(), [&loc](auto& elem) {
+                    return elem.sock == loc.sock;
+                });
+            }
+
+            if (it == newlocs.end()) {
+                close_socket(loc.sock.value());
+            } else {
+                it->sock = loc.sock;
+            }
+        }
+
+        auto res = create_and_bind_sockets(newcfg);
+        if (!res) return res;
+    }
+
+    check_timer->stop();
+    check_termination_timer->stop();
+
+    config = newcfg;
+
+    // we must call spawn() only from pure loop code flow because of prefork child specific run-in-outer-loop exception
+    loop->delay([this, need_restart] {
+        if (need_restart) {
+            for (auto& worker : get_workers()) {
+                if (worker->state == Worker::State::starting || worker->state == Worker::State::running) {
+                    auto new_worker = restart_worker(worker);
+                    new_worker->creation_time = worker->creation_time; // allow to drop restarted servers as if they weren't restarted
+                }
+            }
+        }
+
+        check_timer->start(config.check_interval * 1000);
+        check_termination_timer->start(config.check_interval * 1000);
+
+        check_workers();
+    });
+
+    return {};
 }
 
 Mpm::~Mpm () {

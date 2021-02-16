@@ -1,4 +1,5 @@
 #pragma once
+#include <panda/excepted.h>
 #include <panda/unievent/http/Server.h>
 
 namespace panda { namespace unievent { namespace http { namespace manager {
@@ -10,6 +11,14 @@ extern log::Module panda_log_module;
 struct Manager : Refcnt {
     enum class WorkerModel { PreFork, Thread };
     enum class BindModel   { Duplicate, ReusePort };
+
+    #ifdef _WIN32
+        static const WorkerModel def_wm = WorkerModel::Thread;
+        static const BindModel   def_bm = BindModel::Duplicate;
+    #else
+        static const WorkerModel def_wm = WorkerModel::PreFork;
+        static const BindModel   def_bm = BindModel::ReusePort;
+    #endif
 
     struct Config {
         Server::Config server;
@@ -25,13 +34,8 @@ struct Manager : Refcnt {
         float          check_interval = 1;        // interval between checking to see if we can kill off some waiting servers or if we need to spawn more workers
         uint32_t       activity_timeout = 0;      // kill worker if it's not responding for this number of seconds [0=disable]
         uint32_t       termination_timeout = 0;   // kill worker if it's not terminated after this number of seconds [0=disable]
-        WorkerModel    worker_model =             // Multi-processing module type
-            #ifdef _WIN32
-                WorkerModel::Thread;
-            #else
-                WorkerModel::PreFork;
-            #endif
-        BindModel      bind_model = BindModel::ReusePort; // how to bind http server sockets in workers
+        WorkerModel    worker_model = def_wm;     // Multi-processing module type
+        BindModel      bind_model = def_bm;       // how to bind http server sockets in workers
     };
 
     using start_fptr        = void();
@@ -50,10 +54,13 @@ struct Manager : Refcnt {
 
     Manager (const Config&, const LoopSP& = {});
 
-    const LoopSP& loop () const;
+    const LoopSP& loop   () const;
+    const Config& config () const;
 
     void run  ();
     void stop ();
+
+    excepted<void, string> reconfigure (const Config&);
 
     virtual ~Manager ();
 

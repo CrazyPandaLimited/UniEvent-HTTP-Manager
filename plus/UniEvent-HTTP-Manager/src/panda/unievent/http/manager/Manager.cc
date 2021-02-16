@@ -12,6 +12,13 @@ namespace panda { namespace unievent { namespace http { namespace manager {
 log::Module panda_log_module("UniEvent::HTTP::Manager");
 
 Manager::Manager (const Config& config, const LoopSP& loop) {
+    #ifdef _WIN32
+        if (config.bind_model == BindModel::ReusePort) {
+            panda_log_warning("reuse port is not supported on windows, falling back to duplicate model");
+            config.bind_model = BindModel::Duplicate;
+        }
+    #endif
+
     switch (config.worker_model) {
         case WorkerModel::Thread  : mpm = new Thread(config, loop); break;
         #ifndef _WIN32
@@ -25,6 +32,10 @@ const LoopSP& Manager::loop () const {
     return mpm->get_loop();
 }
 
+const Manager::Config& Manager::config () const {
+    return mpm->get_config();
+}
+
 void Manager::run () {
     mpm->server_factory = server_factory;
     mpm->spawn_event    = spawn_event;
@@ -34,6 +45,10 @@ void Manager::run () {
 
 void Manager::stop () {
     mpm->stop();
+}
+
+excepted<void, string> Manager::reconfigure (const Config& cfg) {
+    return mpm->reconfigure(cfg);
 }
 
 Manager::~Manager () {
