@@ -46,6 +46,8 @@ struct Mpm {
     virtual void run  ();
     virtual void stop ();
 
+    virtual void restart_workers ();
+
     virtual excepted<void, string> reconfigure (const Config&);
 
     virtual ~Mpm ();
@@ -76,11 +78,12 @@ private:
     void kill_not_responding        ();
     void kill_not_terminated        ();
 
-    Worker* spawn             ();
-    void    terminate_workers (uint32_t cnt);
-    void    terminate_worker  (Worker*);
-    void    kill_worker       (Worker*);
-    Worker* restart_worker    (Worker*);
+    Worker* spawn               ();
+    void    terminate_workers   (uint32_t cnt);
+    void    terminate_worker    (Worker*);
+    void    kill_worker         (Worker*);
+    Worker* restart_worker      (Worker*);
+    void    restart_all_workers ();
 
     excepted<void, string> create_and_bind_sockets (Config&);
     void close_socket (sock_t);

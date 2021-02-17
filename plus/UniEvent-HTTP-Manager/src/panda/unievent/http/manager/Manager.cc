@@ -48,6 +48,10 @@ void Manager::stop () {
     mpm->stop();
 }
 
+void Manager::restart_workers () {
+    mpm->restart_workers();
+}
+
 excepted<void, string> Manager::reconfigure (const Config& cfg) {
     return mpm->reconfigure(cfg);
 }

@@ -369,6 +369,18 @@ void Mpm::stopped () {
     loop->stop();
 }
 
+void Mpm::restart_workers () {
+    loop->delay([this]{ restart_all_workers(); });
+}
+
+void Mpm::restart_all_workers () {
+    panda_log_notice("restarting all workers");
+    for (auto& worker : get_workers((int)Worker::State::starting | (int)Worker::State::running)) {
+        auto new_worker = restart_worker(worker);
+        new_worker->creation_time = worker->creation_time; // this is unplanned restart - preserve creation time to allow drop if limits reached
+    }
+}
+
 excepted<void, string> Mpm::reconfigure (const Config& _newcfg) {
     auto res = normalize_config(_newcfg);
     if (!res) return make_unexpected(res.error());
@@ -418,14 +430,7 @@ excepted<void, string> Mpm::reconfigure (const Config& _newcfg) {
 
     // we must call spawn() only from pure loop code flow because of prefork child specific run-in-outer-loop exception
     loop->delay([this, need_restart] {
-        if (need_restart) {
-            for (auto& worker : get_workers()) {
-                if (worker->state == Worker::State::starting || worker->state == Worker::State::running) {
-                    auto new_worker = restart_worker(worker);
-                    new_worker->creation_time = worker->creation_time; // allow to drop restarted servers as if they weren't restarted
-                }
-            }
-        }
+        if (need_restart) restart_all_workers();
 
         check_timer->start(config.check_interval * 1000);
         check_termination_timer->start(config.check_interval * 1000);

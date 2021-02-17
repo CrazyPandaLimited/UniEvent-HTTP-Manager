@@ -60,6 +60,8 @@ struct Manager : Refcnt {
     void run  ();
     void stop ();
 
+    void restart_workers ();
+
     excepted<void, string> reconfigure (const Config&);
 
     virtual ~Manager ();
