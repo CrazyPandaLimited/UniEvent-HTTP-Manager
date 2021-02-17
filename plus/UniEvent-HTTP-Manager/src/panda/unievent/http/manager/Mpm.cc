@@ -369,23 +369,21 @@ void Mpm::stopped () {
     loop->stop();
 }
 
-static bool need_restart_workers (const Mpm::Config& a, const Mpm::Config& b) {
-    return true;
-}
-
 excepted<void, string> Mpm::reconfigure (const Config& _newcfg) {
     auto res = normalize_config(_newcfg);
     if (!res) return make_unexpected(res.error());
     auto& newcfg = res.value();
 
-    if (newcfg.worker_model != config.worker_model) {
+    if (config.worker_model != newcfg.worker_model) {
         return make_unexpected<string>("changing worker model is not allowed");
     }
-    if (newcfg.bind_model != config.bind_model) {
+    if (config.bind_model != newcfg.bind_model) {
         return make_unexpected<string>("changing bind model is not allowed");
     }
 
-    auto need_restart = need_restart_workers(config, newcfg);
+    auto need_restart = (
+        config.server != newcfg.server || config.load_average_period != newcfg.load_average_period || config.check_interval != newcfg.check_interval
+    );
 
     if (need_restart && config.bind_model == Manager::BindModel::Duplicate) {
         auto& newlocs = newcfg.server.locations;
