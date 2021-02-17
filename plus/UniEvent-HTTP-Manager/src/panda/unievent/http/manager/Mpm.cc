@@ -74,14 +74,16 @@ void Mpm::run () {
 
     sigint = Signal::watch(SIGINT, [this](auto...){ stop(); }, loop);
 
-    if (config.bind_model != Manager::BindModel::Duplicate) create_and_bind_sockets(config);
+    if (config.bind_model == Manager::BindModel::Duplicate) create_and_bind_sockets(config);
+
+    start_event();
 
     loop->delay([this]{ check_workers(); });
-
     loop->run();
 }
 
 excepted<void, string> Mpm::create_and_bind_sockets (Config& config) {
+    assert(config.bind_model == Manager::BindModel::Duplicate);
     // in duplication model we need to create bound sockets for every location in master process
     for (auto& loc : config.server.locations) {
         if (loc.sock) {

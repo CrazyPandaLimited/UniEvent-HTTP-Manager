@@ -38,6 +38,7 @@ const Manager::Config& Manager::config () const {
 
 void Manager::run () {
     mpm->server_factory = server_factory;
+    mpm->start_event    = start_event;
     mpm->spawn_event    = spawn_event;
     mpm->request_event  = request_event;
     mpm->run();

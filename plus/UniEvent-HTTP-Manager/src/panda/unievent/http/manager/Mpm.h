@@ -34,6 +34,7 @@ struct Mpm {
     using Config = Manager::Config;
 
     Manager::server_factory_fn server_factory;
+    Manager::start_cd          start_event;
     Manager::spawn_cd          spawn_event;
     Manager::request_cd        request_event;
 
