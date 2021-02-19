@@ -23,7 +23,7 @@ struct Manager : Refcnt {
     struct Config {
         Server::Config server;
         uint32_t       min_servers = 1;           // The minimum number of servers to keep running
-        uint32_t       max_servers = 0;           // The maximum number of child servers to start. [min_servers*3]
+        uint32_t       max_servers = 0;           // The maximum number of child servers to start. [number of cpu threads]
         uint32_t       min_spare_servers = 0;     // The minimum number of servers to have waiting for requests.
         uint32_t       max_spare_servers = 0;     // The maximum number of servers to have waiting for requests. [min_spare_server + min_servers, if min_spare_servers]
         float          min_load = 0;              // minimum average loop load on workers {0-1} [max_load/2 if max_load]

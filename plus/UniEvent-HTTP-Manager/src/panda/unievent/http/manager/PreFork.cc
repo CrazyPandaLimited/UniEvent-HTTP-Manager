@@ -87,6 +87,7 @@ struct PreForkChild : Child, Shmem {
     void run () override {
         Child::run();
         panda_log_info("worker process: exiting");
+        server->stop(); // normally it should already be stopped
         std::exit(0);
     }
 
@@ -97,6 +98,7 @@ struct PreForkChild : Child, Shmem {
     void send_activity (time_t now, float la, uint32_t total_requests, uint32_t recent_requests) override {
         if (kill(master_pid, 0) != 0) {
             panda_log_info("worker: master process died, exiting...");
+            server->stop();
             std::exit(0);
         }
         shmem().load_average     = la * 100;

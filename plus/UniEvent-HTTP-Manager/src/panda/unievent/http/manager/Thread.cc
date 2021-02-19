@@ -65,6 +65,8 @@ struct ThreadChild : Child {
 
         // protect iptrs in functions
         std::lock_guard<std::mutex> lock(mutex);
+
+        server->stop(); // normally it should already be stopped
         server->request_event.remove_all();
     }
 
@@ -109,8 +111,12 @@ WorkerPtr Thread::create_worker () {
         shared.control_handle = new Async(loop);
         shared.control_handle->weak(true);
         shared.control_handle->event.add([&shared, &child, &loop](auto&) {
-            if (shared.die) loop->stop();
-            else if (shared.terminate) child.terminate();
+            if (shared.die) {
+                loop->stop();
+            }
+            else if (shared.terminate) {
+                child.terminate();
+            }
         });
 
         auto config = this->config; // copy

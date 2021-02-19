@@ -1,6 +1,7 @@
 #include "Mpm.h"
 #include "math.h"
 #include <iomanip>
+#include <panda/unievent/util.h>
 
 #ifdef _WIN32
     #include "windows.icc"
@@ -19,7 +20,7 @@ static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _confi
         return make_unexpected<string>("check_interval, load_average_period must not be zero");
     }
 
-    if (!config.max_servers) config.max_servers = config.min_servers * 3;
+    if (!config.max_servers) config.max_servers = std::max((size_t)config.min_servers, panda::unievent::cpu_info().size());
 
     if (!config.max_spare_servers && config.min_spare_servers) {
         config.max_spare_servers = std::min(config.min_spare_servers + config.min_servers, config.max_servers);
@@ -41,6 +42,10 @@ static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _confi
         return make_unexpected<string>("max_spare_servers should be equal to or lower than max_servers");
     }
 
+    if (!config.server.locations.size()) {
+        return make_unexpected<string>("no listen addresses supplied");
+    }
+
     // if at least one location has socket, we switch to duplication mode
     for (auto& row : config.server.locations) {
         if (row.sock) {
@@ -56,8 +61,11 @@ static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _confi
     return config;
 }
 
-Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop), config(normalize_config(_config).value()) {
+Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop) {
     if (!loop) loop = Loop::default_loop();
+    auto res = normalize_config(_config);
+    if (!res) throw exception(res.error());
+    config = res.value();
 }
 
 void Mpm::run () {
