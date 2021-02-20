@@ -28,6 +28,7 @@ struct TestMpm: Mpm {
     }
 
     WorkerPtr create_worker () override { return std::make_unique<TestWorker>(); }
+    void terminate_worker(WorkerPtr& it) { worker_terminated(it.get()); }
     /*
     void      stop          () override;
     void      stopped       () override;
@@ -74,6 +75,22 @@ TEST_CASE("mpm", "[mpm]") {
         CHECK(workers.size() == 2);
     }
 
+    SECTION("stop + worker_terminated") {
+        cfg.min_servers = 2;
+        TestMpm mpm(cfg, loop);
+        mpm.run();
+        CHECK(mpm.is_state_running());
+
+        auto& workers = mpm.get_workers();
+        CHECK(workers.size() == 2);
+
+        mpm.stop();
+        while (!workers.empty()) {
+            mpm.terminate_worker(workers.begin()->second);
+        }
+        CHECK(workers.size() == 0);
+    }
+
     SECTION("kill inactive workers") {
         cfg.max_servers = 1;
         cfg.activity_timeout = 1;
@@ -116,7 +133,6 @@ TEST_CASE("mpm", "[mpm]") {
 
     SECTION("load average") {
         // to spawn: round_up(1/0.3) - 1  = 3;
-        //
         cfg.max_servers = 5;
         cfg.max_load = 0.3;
         TestMpm mpm(cfg, loop);
@@ -144,4 +160,37 @@ TEST_CASE("mpm", "[mpm]") {
             CHECK(terminated == 3);
         }
     }
+
+    SECTION("reconfigure") {
+        TestMpm mpm(cfg, loop);
+        cfg.check_interval = 1;
+        mpm.run();
+        auto& workers = mpm.get_workers();
+        CHECK(workers.size() == 1);
+
+        auto w1 = static_cast<TestWorker*>(workers.begin()->second.get());
+        w1->state = Worker::State::running;
+
+        auto cfg2 = cfg;
+        cfg2.check_interval = 2;
+        mpm.reconfigure(cfg2);
+        mpm.auto_stop_loop();
+        loop->run();
+
+        REQUIRE(workers.size() == 2);
+        auto w2 = static_cast<TestWorker*>(workers.at(w1->id + 1).get());
+        CHECK(w1->state == Worker::State::terminating);
+        CHECK(w2->state == Worker::State::running);
+
+        mpm.reconfigure(cfg);
+        mpm.auto_stop_loop();
+        loop->run();
+
+        REQUIRE(workers.size() == 3);
+        auto w3 = static_cast<TestWorker*>(workers.at(w2->id + 1).get());
+        CHECK(w1->state == Worker::State::terminating);
+        CHECK(w2->state == Worker::State::terminating);
+        CHECK(w3->state == Worker::State::running);
+    }
+
 }
