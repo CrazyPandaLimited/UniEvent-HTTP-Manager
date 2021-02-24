@@ -49,7 +49,6 @@ TEST_CASE("thread_model", "[thread_model]") {
         CHECK(invoked);
     }
 
-#if 0
     SECTION("request_callback") {
         std::atomic_bool invoked{false};
         mgr->spawn_event.add([&](const http::ServerSP& server){
@@ -57,19 +56,26 @@ TEST_CASE("thread_model", "[thread_model]") {
                 auto port  = server->listeners()[0]->sockaddr()->port();
                 printf("going to use port %d\n", port);
                 std::cout << "run thread = " << std::this_thread::get_id() << "\n";
-                TimerSP timer;
-                timer = Timer::once(5, [&invoked, port = port, timer = timer](auto&) {
+                TimerSP timer = new Timer(server->loop());
+                timer->event.add([&invoked, port = port, timer = timer](auto&){
                     char buff[50];
                     sprintf(buff, "http://127.0.0.1:%d/", port);
                     printf("going to make a request %s\n", buff);
+
+                    http::ClientSP client = new http::Client(timer->loop());
                     auto req = http::Request::Builder().uri(buff).build();
-                    req->response_event.add([&](auto&, auto& res, auto& err){
+                    req->response_event.add([&invoked, req = req, client = client](auto&, auto& res, auto& err) mutable {
                         if (!err) {
                             invoked = true;
                         }
+                        req.reset();
+                        client.reset();
                     });
+                    client->request(req);
                     timer->reset();
-                }, server->loop());
+
+                });
+                timer->once(5);
                 std::cout << "spawned timer = " << timer << ", on loop " << (void*)server->loop().get() << "\n";
             });
         });
@@ -79,7 +85,7 @@ TEST_CASE("thread_model", "[thread_model]") {
         });
 
         std::atomic_bool timer_invoked{false};
-        auto timer = Timer::once(2000, [&](auto&) {
+        auto timer = Timer::once(100, [&](auto&) {
             timer_invoked = true;
             mgr->stop();
         }, loop);
@@ -87,5 +93,4 @@ TEST_CASE("thread_model", "[thread_model]") {
         CHECK(timer_invoked);
         CHECK(invoked);
     }
-#endif
 }
