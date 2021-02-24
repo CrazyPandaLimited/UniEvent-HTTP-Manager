@@ -1,6 +1,4 @@
 #include <catch2/catch.hpp>
-#include <panda/log.h>
-#include <panda/function.h>
 #include <panda/unievent/http/manager/Mpm.h>
 
 using namespace panda;
@@ -29,10 +27,6 @@ struct TestMpm: Mpm {
 
     WorkerPtr create_worker () override { return std::make_unique<TestWorker>(); }
     void terminate_worker(WorkerPtr& it) { worker_terminated(it.get()); }
-    /*
-    void      stop          () override;
-    void      stopped       () override;
-    */
 
     void auto_stop_loop() {
         idle_cycles = 5;
