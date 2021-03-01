@@ -57,7 +57,7 @@ my $tm = UE::Timer->new($mgr->loop);
 $tm->callback(sub {
     note "timer_callback, $$";
     return unless $$ eq $root;
-    my $err = $t->await(1);
+    my $err = $t->await(2);
     is $err, undef, "spawn_callback works in child process";
     $l->stop;
 });
