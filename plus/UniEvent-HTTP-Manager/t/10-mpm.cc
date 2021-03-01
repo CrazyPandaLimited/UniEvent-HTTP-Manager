@@ -141,8 +141,8 @@ TEST_CASE("mpm", "[mpm]") {
 
         CHECK(mpm.get_workers().size() == 4);
 
+        int terminated = 0;
         SECTION("back to min") {
-            int terminated = 0;
             for(auto& it: mpm.get_workers()) {
                 auto w = static_cast<TestWorker*>(it.second.get());
                 w->state = Worker::State::running;
