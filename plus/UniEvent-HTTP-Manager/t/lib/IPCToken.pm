@@ -1,22 +1,16 @@
 package IPCToken;
 use 5.016;
 use warnings;
-use IPC::SysV qw(IPC_CREAT IPC_RMID IPC_PRIVATE);
+use IPC::SysV qw(IPC_CREAT IPC_PRIVATE);
 
 sub new {
     my ($class, $initial) = @_;
-    my $id = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT)
-        || die("semget failed:: $!");
+    my $id = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
+    die("semget failed:: $!") unless defined $id;
 
     my $obj = bless {id => $id} => $class;
     $obj->inc($initial) if $initial;
     return $obj;
-}
-
-sub DESTROY {
-    my $self = shift;
-    my $id = $self->{id};
-    shmctl($id, IPC_RMID, 0) || die "shmctl: $!";
 }
 
 sub inc {
