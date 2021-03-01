@@ -18,7 +18,7 @@ if ($pid) {
     note "going to kill $pid";
     kill 9, $pid;
     is waitpid($pid, 0), $pid;
-    my $err = $t->await(1);
+    my $err = $t->await(2);
     is $err, undef, "spawn_callback works in child process";
 }
 else {
