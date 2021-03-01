@@ -64,7 +64,7 @@ TEST_CASE("thread_model", "[thread_model]") {
 
                     http::ClientSP client = new http::Client(timer->loop());
                     auto req = http::Request::Builder().uri(buff).build();
-                    req->response_event.add([&invoked, req = req, client = client](auto&, auto& res, auto& err) mutable {
+                    req->response_event.add([&invoked, req = req, client = client](auto&, auto&, auto& err) mutable {
                         if (!err) {
                             invoked = true;
                         }
