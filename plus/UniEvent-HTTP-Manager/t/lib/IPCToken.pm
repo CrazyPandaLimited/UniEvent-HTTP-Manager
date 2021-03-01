@@ -1,32 +1,33 @@
 package IPCToken;
 use 5.016;
 use warnings;
-use IPC::SysV qw(IPC_CREAT IPC_PRIVATE);
+use IPC::SysV qw(IPC_PRIVATE S_IRUSR S_IWUSR IPC_CREAT);
+use IPC::Semaphore;
 
 sub new {
     my ($class, $initial) = @_;
-    my $id = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
-    die("semget failed:: $!") unless defined $id;
+    my $sem = IPC::Semaphore->new(IPC_PRIVATE, 1, S_IRUSR | S_IWUSR | IPC_CREAT);
 
-    my $obj = bless {id => $id} => $class;
+    my $obj = bless {sem => $sem} => $class;
     $obj->inc($initial) if $initial;
     return $obj;
+}
+
+sub DESTROY {
+    my $self = shift;
+    $self->{sem}->remove;
 }
 
 sub inc {
     my ($self, $val) = @_;
     $val //= 1;
-    my $opstring = pack("s!s!s!", 0, $val, 0);
-    my $id = $self->{id};
-    semop($id, $opstring) || die "semop ($$): $!";
+    $self->{sem}->op(0, $val, 0);
 }
 
 sub dec {
     my ($self, $val) = @_;
     ($val //= 1) *= -1;
-    my $opstring = pack("s!s!s!", 0, $val, 0);
-    my $id = $self->{id};
-    semop($id, $opstring) || die "semop ($$): $!";
+    $self->{sem}->op(0, $val, 0);
 }
 
 sub await {
@@ -36,8 +37,7 @@ sub await {
          alarm $timeout;
 
          my $opstring = pack("s!s!s!", 0, 0, 0);
-         my $id = $self->{id};
-         semop($id, $opstring) || die "semop ($$): $!";
+         $self->{sem}->op(0, 0, 0);
 
          alarm 0;
      };
