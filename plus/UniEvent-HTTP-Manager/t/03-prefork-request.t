@@ -59,7 +59,7 @@ $tm->callback(sub {
     return unless $$ eq $root;
     my $err = $t->await(2);
     is $err, undef, "spawn_callback works in child process";
-    $l->stop;
+    $mgr->stop;
 });
 $tm->once(0.01);
 $mgr->run;

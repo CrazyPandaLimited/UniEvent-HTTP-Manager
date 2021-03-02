@@ -27,7 +27,7 @@ $h->event->add(sub {
     note "idle_callback, $$";
     my $err = $t->await(2);
     is $err, undef, "spawn_callback works in child process";
-    $l->stop;
+    $mgr->stop;
 });
 $h->start;
 $mgr->run;
