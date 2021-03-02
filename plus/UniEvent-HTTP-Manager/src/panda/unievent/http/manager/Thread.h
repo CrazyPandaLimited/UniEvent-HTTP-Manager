@@ -4,7 +4,7 @@
 namespace panda { namespace unievent { namespace http { namespace manager {
 
 struct Thread : Mpm {
-    Thread (const Config&, const LoopSP&);
+    Thread (const Config&, const LoopSP&, const LoopSP&);
 
     void      run           () override;
     WorkerPtr create_worker () override;

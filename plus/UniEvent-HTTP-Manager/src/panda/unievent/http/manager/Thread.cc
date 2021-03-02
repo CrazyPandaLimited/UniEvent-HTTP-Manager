@@ -12,15 +12,15 @@ struct ThreadWorker : Worker {
     std::thread thread;
 
     struct SharedData {
-        AsyncSP                control_handle;
-        AsyncSP                termination_handle;
-        std::atomic<uint32_t>  active_requests;
-        std::atomic<time_t>    activity_time;
-        std::atomic<float>     load_average;
-        std::atomic<uint32_t>  total_requests;
+        AsyncSP               control_handle;
+        AsyncSP               termination_handle;
+        std::atomic<uint32_t> active_requests;
+        std::atomic<time_t>   activity_time;
+        std::atomic<float>    load_average;
+        std::atomic<uint32_t> total_requests;
         std::atomic<uint32_t> recent_requests;
-        std::atomic<bool>      terminate;
-        std::atomic<bool>      die;
+        std::atomic<bool>     terminate;
+        std::atomic<bool>     die;
     } shared;
 
     ThreadWorker () {
@@ -82,8 +82,8 @@ struct ThreadChild : Child {
     }
 };
 
-Thread::Thread (const Config& _c, const LoopSP& _l) : Mpm(_c, _l) {
-    if (loop != Loop::default_loop()) throw exception("you must use default loop for thread worker model");
+Thread::Thread (const Config& _c, const LoopSP& _loop, const LoopSP& _worker_loop) : Mpm(_c, _loop, _worker_loop) {
+    if (worker_loop != Loop::default_loop()) throw exception("you must use default loop as worker_loop for thread worker model");
 }
 
 void Thread::run () {

@@ -172,7 +172,7 @@ WorkerPtr PreFork::create_worker () {
     auto child = std::make_unique<PreForkChild>();
     child->mapped_mem = worker->mapped_mem;
     worker->mapped_mem = nullptr;
-    child->init({loop, config, server_factory, spawn_event, request_event});
+    child->init({worker_loop, config, server_factory, spawn_event, request_event});
 
     // we can't run child here because it would be a recursive loop run call.
     // we need to bail out of loop execution and run child from there

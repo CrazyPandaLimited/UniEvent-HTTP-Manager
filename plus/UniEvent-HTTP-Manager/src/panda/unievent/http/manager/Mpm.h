@@ -38,7 +38,7 @@ struct Mpm {
     Manager::spawn_cd          spawn_event;
     Manager::request_cd        request_event;
 
-    Mpm (const Config&, const LoopSP&);
+    Mpm (const Config&, const LoopSP&, const LoopSP&);
 
     const LoopSP& get_loop   () const { return loop; }
     const Config& get_config () const { return config; }
@@ -55,6 +55,7 @@ struct Mpm {
 protected:
     enum class State { initial, running, stopping, stopped };
     LoopSP   loop;
+    LoopSP   worker_loop;
     Config   config;
     State    state = State::initial;
     TimerSP  check_timer;

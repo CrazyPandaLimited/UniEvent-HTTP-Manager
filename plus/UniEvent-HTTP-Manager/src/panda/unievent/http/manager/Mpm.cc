@@ -61,8 +61,9 @@ static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _confi
     return config;
 }
 
-Mpm::Mpm (const Config& _config, const LoopSP& _loop) : loop(_loop) {
-    if (!loop) loop = Loop::default_loop();
+Mpm::Mpm (const Config& _config, const LoopSP& _loop, const LoopSP& _worker_loop) : loop(_loop), worker_loop(_worker_loop) {
+    if (!loop) loop = new Loop();
+    if (!worker_loop) worker_loop = Loop::default_loop();
     auto res = normalize_config(_config);
     if (!res) throw exception(res.error());
     config = res.value();
