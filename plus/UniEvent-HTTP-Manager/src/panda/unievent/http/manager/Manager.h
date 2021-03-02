@@ -52,7 +52,8 @@ struct Manager : Refcnt {
     spawn_cd          spawn_event;
     request_cd        request_event;
 
-    Manager (const Config&, LoopSP = {}, LoopSP = {}, Mpm* = nullptr);
+    Manager (const Config&, LoopSP = {}, LoopSP = {});
+    Manager (Mpm*);
 
     const LoopSP& loop   () const;
     const Config& config () const;

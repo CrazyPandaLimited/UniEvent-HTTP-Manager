@@ -16,6 +16,13 @@ static uint64_t lastid;
 static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _config) {
     auto config = _config;
 
+    #ifdef _WIN32
+        if (config.bind_model == BindModel::ReusePort) {
+            panda_log_warning("reuse port is not supported on windows, falling back to duplicate model");
+            config.bind_model = BindModel::Duplicate;
+        }
+    #endif
+
     if (!config.check_interval || !config.load_average_period) {
         return make_unexpected<string>("check_interval, load_average_period must not be zero");
     }
