@@ -57,7 +57,7 @@ TEST_CASE("mpm", "[mpm]") {
 
     SECTION("run + start-event") {
         cfg.min_servers = 2;
-        TestMpm mpm(cfg, loop);
+        TestMpm mpm(cfg, loop, loop);
         CHECK(mpm.is_state_initial());
 
         int started = 0;
@@ -71,7 +71,7 @@ TEST_CASE("mpm", "[mpm]") {
 
     SECTION("stop + worker_terminated") {
         cfg.min_servers = 2;
-        TestMpm mpm(cfg, loop);
+        TestMpm mpm(cfg, loop, loop);
         mpm.run();
         CHECK(mpm.is_state_running());
 
@@ -88,7 +88,7 @@ TEST_CASE("mpm", "[mpm]") {
     SECTION("kill inactive workers") {
         cfg.max_servers = 1;
         cfg.activity_timeout = 1;
-        TestMpm mpm(cfg, loop);
+        TestMpm mpm(cfg, loop, loop);
         mpm.run();
 
         bool killed = false;
@@ -105,7 +105,7 @@ TEST_CASE("mpm", "[mpm]") {
     SECTION("autorestart workers") {
         cfg.max_servers = 1;
         cfg.max_requests = 1;
-        TestMpm mpm(cfg, loop);
+        TestMpm mpm(cfg, loop, loop);
         mpm.run();
 
         auto w = static_cast<TestWorker*>(mpm.get_workers().begin()->second.get());
@@ -129,7 +129,7 @@ TEST_CASE("mpm", "[mpm]") {
         // to spawn: round_up(1/0.3) - 1  = 3;
         cfg.max_servers = 5;
         cfg.max_load = 0.3;
-        TestMpm mpm(cfg, loop);
+        TestMpm mpm(cfg, loop, loop);
         mpm.run();
         REQUIRE(mpm.get_workers().size() == 1);
 
@@ -156,7 +156,7 @@ TEST_CASE("mpm", "[mpm]") {
     }
 
     SECTION("reconfigure") {
-        TestMpm mpm(cfg, loop);
+        TestMpm mpm(cfg, loop, loop);
         cfg.check_interval = 1;
         mpm.run();
         auto& workers = mpm.get_workers();
