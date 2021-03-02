@@ -13,11 +13,6 @@ sub new {
     return $obj;
 }
 
-sub DESTROY {
-    my $self = shift;
-    $self->{sem}->remove;
-}
-
 sub inc {
     my ($self, $val) = @_;
     $val //= 1;
@@ -41,6 +36,7 @@ sub await {
 
          alarm 0;
      };
+     $self->{sem}->remove;
      if ($@) {
         if ($@ eq "alarm\n") {
             return "timed out";
