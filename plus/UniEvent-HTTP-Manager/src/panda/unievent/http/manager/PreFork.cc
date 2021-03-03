@@ -167,7 +167,6 @@ WorkerPtr PreFork::create_worker () {
     check_timer.reset();
     check_termination_timer.reset();
     sigchld.reset();
-    sigint.reset();
 
     auto child = std::make_unique<PreForkChild>();
     child->mapped_mem = worker->mapped_mem;

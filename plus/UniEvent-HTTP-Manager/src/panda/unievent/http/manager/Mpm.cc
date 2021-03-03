@@ -88,8 +88,6 @@ void Mpm::run () {
     check_termination_timer->start(config.check_interval * 1000);
     check_termination_timer->weak(true);
 
-    sigint = Signal::watch(SIGINT, [this](auto...){ stop(); }, loop);
-
     if (config.bind_model == Manager::BindModel::Duplicate) create_and_bind_sockets(config);
 
     start_event();
@@ -380,7 +378,6 @@ void Mpm::close_socket (sock_t sock) {
 
 void Mpm::stopped () {
     check_termination_timer.reset();
-    sigint.reset();
     state = State::stopped;
     loop->stop();
 }

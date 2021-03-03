@@ -60,7 +60,6 @@ protected:
     State    state = State::initial;
     TimerSP  check_timer;
     TimerSP  check_termination_timer;
-    SignalSP sigint;
     Workers  workers;
     uint64_t last_check_time = 0;
 
