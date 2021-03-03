@@ -56,18 +56,18 @@ struct PreForkWorker : Worker, Shmem {
     }
 
     void terminate () override {
-        panda_log_info("master process: terminate worker pid=" << pid);
+        panda_log_info("terminating worker pid=" << pid);
         send_signal(SIGINT);
     }
 
     void kill () override {
-        panda_log_info("master process: killing worker pid=" << pid);
+        panda_log_info("killing worker pid=" << pid);
         send_signal(SIGKILL);
     }
 
     void send_signal (int signum) {
         auto res = ::kill(pid, signum);
-        if (res == -1) panda_log_critical("master process: could not send signal " << signum << " to worker pid=" << pid);
+        if (res == -1) panda_log_critical("could not send signal " << signum << " to worker pid=" << pid);
     }
 };
 
@@ -86,7 +86,7 @@ struct PreForkChild : Child, Shmem {
 
     void run () override {
         Child::run();
-        panda_log_info("worker process: exiting");
+        panda_log_info("worker terminated");
         server->stop(); // normally it should already be stopped
         std::exit(0);
     }
@@ -97,7 +97,7 @@ struct PreForkChild : Child, Shmem {
 
     void send_activity (time_t now, float la, uint32_t total_requests, uint32_t recent_requests) override {
         if (kill(master_pid, 0) != 0) {
-            panda_log_info("worker: master process died, exiting...");
+            panda_log_info("master process died, terminating...");
             server->stop();
             std::exit(0);
         }
@@ -135,7 +135,7 @@ void PreFork::handle_sigchld () {
     pid_t pid;
     int wstatus;
     while ((pid = waitpid(-1, &wstatus, WNOHANG)) > 0) {
-        panda_log_info("master: worker pid=" << pid << " terminated");
+        panda_log_info("worker pid=" << pid << " terminated");
         for (auto& row : workers) {
             auto worker = static_cast<PreForkWorker*>(row.second.get());
             if (worker->pid == pid) {

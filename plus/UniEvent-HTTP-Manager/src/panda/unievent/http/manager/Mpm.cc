@@ -209,7 +209,7 @@ void Mpm::kill_not_responding () {
     auto now = std::time(NULL);
     for (auto w : get_workers(Worker::State::running)) {
         if (now - w->activity_time < config.activity_timeout) continue;
-        panda_log_info("master: killing not responding worker id=" << w->id);
+        panda_log_info("killing not responding worker id=" << w->id);
         kill_worker(w);
     }
 }
@@ -219,7 +219,7 @@ void Mpm::kill_not_terminated () {
     auto now = std::time(NULL);
     for (auto w : get_workers(Worker::State::terminating)) {
         if (now - w->termination_time < config.termination_timeout) continue;
-        panda_log_info("master: killing not terminated worker id=" << w->id);
+        panda_log_info("killing not terminated worker id=" << w->id);
         kill_worker(w);
     }
 }
@@ -242,7 +242,7 @@ void Mpm::terminate_restared_workers () {
         while (last->replaced_by) {
             auto it = workers.find(last->replaced_by);
             if (it == workers.end()) {
-                panda_log_warning("master: restarting worker died, spawning another one...");
+                panda_log_warning("restarting worker failed, spawning another one...");
                 restart_worker(last);
                 continue;
             }
@@ -252,7 +252,7 @@ void Mpm::terminate_restared_workers () {
         if (last->state == Worker::State::starting) continue;
         assert(last->state == Worker::State::running);
 
-        panda_log_info("master: restarting worker ready");
+        panda_log_info("restarting worker complete");
         auto curw = w;
         while (curw != last) {
             assert(curw->state == Worker::State::restarting);
@@ -268,13 +268,13 @@ void Mpm::autorestart_workers () {
     auto now = std::time(NULL);
     for (auto w : get_workers(Worker::State::running)) {
         if (w->total_requests < config.max_requests || now - w->creation_time <= config.min_worker_ttl) continue;
-        panda_log_notice("master: worker id=" << w->id << " max requests reached, restarting...");
+        panda_log_notice("worker id=" << w->id << " max requests reached, restarting...");
         restart_worker(w);
     }
 }
 
 Worker* Mpm::spawn () {
-    panda_log_debug("spawn worker");
+    panda_log_debug("spawning worker");
     auto worker = create_worker();
     auto wptr = worker.get();
     worker->id = ++lastid;
@@ -321,10 +321,10 @@ Worker* Mpm::restart_worker (Worker* worker) {
 
 void Mpm::worker_terminated (Worker* worker) {
     switch (worker->state) {
-        case Worker::State::starting    : panda_log_critical("master: starting worker died"); break;
+        case Worker::State::starting    : panda_log_critical("starting worker died"); break;
         case Worker::State::restarting  :
-        case Worker::State::running     : panda_log_critical("master: running worker died"); break;
-        case Worker::State::terminating : panda_log_info("master: worker terminated");
+        case Worker::State::running     : panda_log_critical("running worker died"); break;
+        case Worker::State::terminating : panda_log_info("worker terminated");
     }
     workers.erase(worker->id);
 
@@ -335,7 +335,7 @@ void Mpm::worker_terminated (Worker* worker) {
         }
         case State::stopping : {
             if (workers.size()) break;
-            panda_log_info("master: all workers terminated. server stopped.");
+            panda_log_info("all workers terminated. server stopped.");
             stopped();
             break;
         }
@@ -345,7 +345,7 @@ void Mpm::worker_terminated (Worker* worker) {
 
 void Mpm::stop () {
     if (state != State::running) return;
-    panda_log_info("master: server is stopping...");
+    panda_log_info("server is stopping...");
     state = State::stopping;
     check_timer.reset();
 
