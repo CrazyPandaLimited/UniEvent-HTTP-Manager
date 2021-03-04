@@ -1,58 +1,10 @@
 #include "Thread.h"
 #include <mutex>
 #include <future>
-#include <thread>
-#include <panda/unievent/Async.h>
 
 namespace panda { namespace unievent { namespace http { namespace manager {
 
 static std::mutex mutex;
-
-struct ThreadWorker : Worker {
-    std::thread thread;
-
-    struct SharedData {
-        AsyncSP               control_handle;
-        AsyncSP               termination_handle;
-        std::atomic<uint32_t> active_requests;
-        std::atomic<time_t>   activity_time;
-        std::atomic<float>    load_average;
-        std::atomic<uint32_t> total_requests;
-        std::atomic<uint32_t> recent_requests;
-        std::atomic<bool>     terminate;
-        std::atomic<bool>     die;
-    } shared;
-
-    ThreadWorker () {
-        shared.active_requests = 0;
-        shared.activity_time   = 0;
-        shared.load_average    = 0;
-        shared.total_requests  = 0;
-        shared.terminate       = false;
-        shared.die             = false;
-    }
-
-    void fetch_state () override {
-        active_requests = shared.active_requests;
-        load_average    = shared.load_average;
-        activity_time   = shared.activity_time;
-        total_requests  = shared.total_requests;
-        recent_requests = shared.recent_requests;
-        shared.recent_requests -= recent_requests;
-    }
-
-    void terminate () override {
-        panda_log_info("master thread: terminate worker thread=" << thread.get_id());
-        shared.terminate = true;
-        shared.control_handle->send();
-    }
-
-    void kill () override {
-        panda_log_info("master thread: killing worker thread=" << thread.get_id());
-        shared.die = true;
-        shared.control_handle->send();
-    }
-};
 
 struct ThreadChild : Child {
     ThreadWorker::SharedData& shared;
@@ -82,6 +34,38 @@ struct ThreadChild : Child {
     }
 };
 
+
+ThreadWorker::ThreadWorker () {
+    shared.active_requests = 0;
+    shared.activity_time   = 0;
+    shared.load_average    = 0;
+    shared.total_requests  = 0;
+    shared.terminate       = false;
+    shared.die             = false;
+}
+
+void ThreadWorker::fetch_state () {
+    active_requests = shared.active_requests;
+    load_average    = shared.load_average;
+    activity_time   = shared.activity_time;
+    total_requests  = shared.total_requests;
+    recent_requests = shared.recent_requests;
+    shared.recent_requests -= recent_requests;
+}
+
+void ThreadWorker::terminate () {
+    panda_log_info("master thread: terminate worker thread=" << tid());
+    shared.terminate = true;
+    shared.control_handle->send();
+}
+
+void ThreadWorker::kill () {
+    panda_log_info("master thread: killing worker thread=" << tid());
+    shared.die = true;
+    shared.control_handle->send();
+}
+
+
 Thread::Thread (const Config& _c, const LoopSP& _loop, const LoopSP& _worker_loop) : Mpm(_c, _loop, _worker_loop) {
     if (worker_loop != Loop::default_loop()) throw exception("you must use default loop as worker_loop for thread worker model");
 }
@@ -95,41 +79,52 @@ WorkerPtr Thread::create_worker () {
 
     std::promise<bool> init_promise;
 
-    auto worker = std::make_unique<ThreadWorker>();
+    auto worker = make_thread_worker();
     worker->shared.termination_handle = new Async(loop);
     worker->shared.termination_handle->event.add([this, worker = worker.get()](auto&) {
-        panda_log_info("master: worker tid=" << worker->thread.get_id() << " terminated");
-        worker->thread.join();
+        panda_log_info("master: worker tid=" << worker->tid() << " terminated");
+        worker->join();
+        panda_log_info("master: worker tid=" << worker->tid() << " joined");
         worker_terminated(worker);
     });
 
-    worker->thread = std::thread([this, &shared = worker->shared, &init_promise] {
-        auto loop = Loop::default_loop(); // this loop is thread-local, DO NOT use this->loop !
-
+    std::function<void()> thr_fn = [this, &shared = worker->shared, &init_promise] {
         ThreadChild child(shared);
 
-        shared.control_handle = new Async(loop);
-        shared.control_handle->weak(true);
-        shared.control_handle->event.add([&shared, &child, &loop](auto&) {
-            if (shared.die) {
-                loop->stop();
-            }
-            else if (shared.terminate) {
-                child.terminate();
-            }
-        });
+        try {
+            auto loop = Loop::default_loop(); // this loop is thread-local, DO NOT use this->loop !
 
-        auto config = this->config; // copy
-        if (config.bind_model == Manager::BindModel::Duplicate) { // we need to dup sockets
-            for (auto& loc : config.server.locations) loc.sock = sock_dup(loc.sock.value());
+            shared.control_handle = new Async(loop);
+            shared.control_handle->weak(true);
+            shared.control_handle->event.add([&shared, &child, &loop](auto&) {
+                if (shared.die) {
+                    loop->stop();
+                }
+                else if (shared.terminate) {
+                    child.terminate();
+                }
+            });
+
+            auto config = this->config; // copy
+            if (config.bind_model == Manager::BindModel::Duplicate) { // we need to dup sockets
+                for (auto& loc : config.server.locations) loc.sock = sock_dup(loc.sock.value());
+            }
+
+            child.init({loop, config, server_factory, spawn_event, request_event});
+        }
+        catch (...) {
+            init_promise.set_value(true);
+            shared.termination_handle->send();
+            throw;
         }
 
-        child.init({loop, config, server_factory, spawn_event, request_event});
         init_promise.set_value(true);
 
         child.run();
         shared.termination_handle->send();
-    });
+    };
+
+    worker->create_thread(thr_fn);
 
     // wait until thread initializes to allow running thread-unsafe code in worker initialization callbacks
     init_promise.get_future().wait();

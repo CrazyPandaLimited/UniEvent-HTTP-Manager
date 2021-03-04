@@ -2,7 +2,7 @@
 #include <ctime>
 #include <atomic>
 
-#include "Thread.h"
+#include "StlThread.h"
 #ifndef _WIN32
     #include "PreFork.h"
 #endif
@@ -15,7 +15,7 @@ Manager::Manager (Mpm* mpm) : mpm(mpm) {}
 
 Manager::Manager (const Config& config, LoopSP master_loop, LoopSP worker_loop) {
     switch (config.worker_model) {
-        case WorkerModel::Thread  : mpm = new Thread(config, master_loop, worker_loop); break;
+        case WorkerModel::Thread  : mpm = new StlThread(config, master_loop, worker_loop); break;
         #ifndef _WIN32
         case WorkerModel::PreFork : mpm = new PreFork(config, master_loop, worker_loop); break;
         #endif
