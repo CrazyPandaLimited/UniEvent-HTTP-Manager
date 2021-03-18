@@ -40,7 +40,7 @@ TEST_CASE("thread_model", "[thread_model]") {
         });
 
         std::atomic_bool timer_invoked{false};
-        auto timer = Timer::once(100, [&](auto&) {
+        auto timer = Timer::create_once(100, [&](auto&) {
             timer_invoked = true;
             mgr->stop();
         }, loop);
@@ -85,7 +85,7 @@ TEST_CASE("thread_model", "[thread_model]") {
         });
 
         std::atomic_bool timer_invoked{false};
-        auto timer = Timer::once(100, [&](auto&) {
+        auto timer = Timer::create_once(100, [&](auto&) {
             timer_invoked = true;
             mgr->stop();
         }, loop);
