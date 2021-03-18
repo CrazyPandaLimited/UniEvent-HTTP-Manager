@@ -32,7 +32,7 @@ void Child::init (ServerParams p) {
     loop->update_time();
     la_last_time = loop->now();
 
-    la_timer = Timer::start(p.config.check_interval * 1000, [this](auto&) {
+    la_timer = Timer::create(p.config.check_interval * 1000, [this](auto&) {
         auto prev_time = la_last_time;
         loop->update_time();
         la_last_time = loop->now();
