@@ -80,7 +80,7 @@ struct PreForkChild : Child, Shmem {
 
         Child::init(p);
 
-        term_signal = Signal::watch(SIGINT, [this](auto...) { terminate(); }, loop);
+        term_signal = Signal::create(SIGINT, [this](auto...) { terminate(); }, loop);
         term_signal->weak(true);
     }
 
@@ -115,7 +115,7 @@ struct RunChildInOuterScope {
 };
 
 void PreFork::run () {
-    sigchld = Signal::watch(SIGCHLD, [this](auto...){ handle_sigchld(); }, loop);
+    sigchld = Signal::create(SIGCHLD, [this](auto...){ handle_sigchld(); }, loop);
 
     ChildPtr child;
     try {
