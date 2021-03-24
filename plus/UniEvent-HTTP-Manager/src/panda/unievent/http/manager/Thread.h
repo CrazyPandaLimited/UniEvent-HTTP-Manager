@@ -1,13 +1,15 @@
 #pragma once
 #include "Mpm.h"
 #include <atomic>
+#include <mutex>
 #include <panda/unievent/Async.h>
 
 namespace panda { namespace unievent { namespace http { namespace manager {
 
 struct ThreadWorker : Worker {
     struct SharedData {
-        AsyncSP               control_handle;
+        Async*                control_handle;
+        std::mutex            control_mutex;
         AsyncSP               termination_handle;
         std::atomic<uint32_t> active_requests;
         std::atomic<time_t>   activity_time;

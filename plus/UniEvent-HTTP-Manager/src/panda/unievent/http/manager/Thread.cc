@@ -56,7 +56,11 @@ void ThreadWorker::fetch_state () {
 void ThreadWorker::terminate () {
     panda_log_info("master thread: terminate worker thread=" << tid());
     shared.terminate = true;
-    shared.control_handle->send();
+
+    std::lock_guard<std::mutex> lock(shared.control_mutex);
+    if (shared.control_handle) {
+        shared.control_handle->send();
+    }
 }
 
 void ThreadWorker::kill () {
@@ -90,11 +94,11 @@ WorkerPtr Thread::create_worker () {
 
     std::function<void()> thr_fn = [this, &shared = worker->shared, &init_promise] {
         ThreadChild child(shared);
+        auto loop = Loop::default_loop(); // this loop is thread-local, DO NOT use this->loop !
+        AsyncSP control_handle = new Async(loop);
 
         try {
-            auto loop = Loop::default_loop(); // this loop is thread-local, DO NOT use this->loop !
-
-            shared.control_handle = new Async(loop);
+            shared.control_handle = control_handle;
             shared.control_handle->weak(true);
             shared.control_handle->event.add([&shared, &child, &loop](auto&) {
                 if (shared.die) {
@@ -121,6 +125,11 @@ WorkerPtr Thread::create_worker () {
         init_promise.set_value(true);
 
         child.run();
+
+        {
+            std::lock_guard<std::mutex> lock(shared.control_mutex);
+            shared.control_handle = nullptr;
+        }
         shared.termination_handle->send();
     };
 
