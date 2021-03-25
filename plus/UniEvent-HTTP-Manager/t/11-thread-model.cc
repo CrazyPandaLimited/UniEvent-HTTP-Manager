@@ -40,7 +40,7 @@ TEST_CASE("thread_model", "[thread_model]") {
         });
 
         std::atomic_bool timer_invoked{false};
-        auto timer = Timer::once(100, [&](auto&) {
+        auto timer = Timer::create_once(100, [&](auto&) {
             timer_invoked = true;
             mgr->stop();
         }, loop);
@@ -57,7 +57,7 @@ TEST_CASE("thread_model", "[thread_model]") {
                 printf("going to use port %d\n", port);
                 std::cout << "run thread = " << std::this_thread::get_id() << "\n";
                 TimerSP timer = new Timer(server->loop());
-                timer->event.add([&invoked, port = port, timer = timer](auto&){
+                timer->event.add([&invoked, port = port, timer = timer](auto&) mutable {
                     char buff[50];
                     sprintf(buff, "http://127.0.0.1:%d/", port);
                     printf("going to make a request %s\n", buff);
@@ -73,6 +73,7 @@ TEST_CASE("thread_model", "[thread_model]") {
                     });
                     client->request(req);
                     timer->reset();
+                    timer.reset();
 
                 });
                 timer->once(5);
@@ -85,7 +86,7 @@ TEST_CASE("thread_model", "[thread_model]") {
         });
 
         std::atomic_bool timer_invoked{false};
-        auto timer = Timer::once(100, [&](auto&) {
+        auto timer = Timer::create_once(100, [&](auto&) {
             timer_invoked = true;
             mgr->stop();
         }, loop);
