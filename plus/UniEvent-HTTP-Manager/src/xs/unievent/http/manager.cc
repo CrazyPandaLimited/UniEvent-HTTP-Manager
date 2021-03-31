@@ -17,6 +17,7 @@ void fill (Manager::Config& cfg, const Hash& h) {
     if ((v  = h.fetch("check_interval")))      cfg.check_interval      = v;
     if ((v  = h.fetch("activity_timeout")))    cfg.activity_timeout    = v;
     if ((v  = h.fetch("termination_timeout"))) cfg.termination_timeout = v;
+    if ((sv = h.fetch("force_worker_stop")))   cfg.force_worker_stop   = sv.is_true();
 
     if ((v = h.fetch("worker_model"))) switch ((Manager::WorkerModel)(int)v) {
         case Manager::WorkerModel::PreFork : cfg.worker_model = Manager::WorkerModel::PreFork; break;
