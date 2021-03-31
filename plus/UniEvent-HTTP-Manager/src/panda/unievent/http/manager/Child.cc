@@ -62,12 +62,14 @@ void Child::terminate () {
     panda_log_info("worker: terminating...");
     if (terminating) return;
     terminating = true;
-    if (force_stop) {
-        server->stop_event.add([this]() {
-            panda_log_debug("worker: server stopped. unblocking loop...");
+    server->stop_event.add([this]() {
+        if (force_stop) {
+            panda_log_debug("worker: server is gracefully stopped. unblocking loop...");
             loop->stop();
-        });
-    }
+        } else {
+            panda_log_debug("worker: server is gracefully stopped. waiting for loop to unblock...");
+        }
+    });
     server->graceful_stop();
 }
 
