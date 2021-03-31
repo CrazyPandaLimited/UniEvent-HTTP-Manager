@@ -17,6 +17,8 @@ void Child::init (ServerParams p) {
 
     if (p.request_event.has_listeners()) server->request_event = p.request_event;
 
+    force_stop = p.config.force_worker_stop;
+
     p.spawn_event(server);
 
     server->route_event.add([this](auto& req) {
@@ -61,8 +63,12 @@ void Child::terminate () {
     if (terminating) return;
     terminating = true;
     server->stop_event.add([this]() {
-        panda_log_debug("worker: server stopped. unblocking loop...");
-        loop->stop();
+        if (force_stop) {
+            panda_log_debug("worker: server is gracefully stopped. unblocking loop...");
+            loop->stop();
+        } else {
+            panda_log_debug("worker: server is gracefully stopped. waiting for loop to unblock...");
+        }
     });
     server->graceful_stop();
 }

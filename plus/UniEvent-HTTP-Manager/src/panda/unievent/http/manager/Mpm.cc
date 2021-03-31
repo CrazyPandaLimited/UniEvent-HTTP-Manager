@@ -27,7 +27,7 @@ static excepted<Mpm::Config, string> normalize_config (const Mpm::Config& _confi
         return make_unexpected<string>("check_interval, load_average_period must not be zero");
     }
 
-    if (!config.max_servers) config.max_servers = std::max((size_t)config.min_servers, panda::unievent::cpu_info().size());
+    if (!config.max_servers) config.max_servers = std::max((size_t)config.min_servers, panda::unievent::cpu_info().value().size());
 
     if (!config.max_spare_servers && config.min_spare_servers) {
         config.max_spare_servers = std::min(config.min_spare_servers + config.min_servers, config.max_servers);

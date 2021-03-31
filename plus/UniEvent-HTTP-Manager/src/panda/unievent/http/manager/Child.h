@@ -24,7 +24,8 @@ protected:
     ServerSP server;
     TimerSP  la_timer;
     uint64_t la_last_time = 0;
-    bool     terminating = false;
+    bool     force_stop   = false;
+    bool     terminating  = false;
 
     struct {
         uint32_t active = 0;
