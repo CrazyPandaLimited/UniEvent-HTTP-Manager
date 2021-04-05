@@ -62,6 +62,7 @@ protected:
     TimerSP  check_termination_timer;
     Workers  workers;
     uint64_t last_check_time = 0;
+    uint64_t check_count = 0;
 
     virtual WorkerPtr create_worker     () = 0;
     void              worker_terminated (Worker*);
