@@ -152,7 +152,8 @@ void Mpm::check_workers () {
 
     float avgload = cnt.total ? sumload / cnt.total : 0;
 
-    panda_log_debug(
+    ++check_count;
+    panda_log(check_count % 60 == 0 ? log::Level::Info : log::Level::Debug,
         "servers total=" << cnt.total <<
         ", inactive=" << cnt.inactive <<
         ", load average=" << std::setprecision(3) << std::fixed << avgload <<
