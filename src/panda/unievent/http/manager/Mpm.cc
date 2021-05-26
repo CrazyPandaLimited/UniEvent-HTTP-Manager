@@ -92,7 +92,7 @@ void Mpm::run () {
 
     start_event();
 
-    panda_log_info("конфиг UE::HTTP::Server'a при старте");
+    panda_log_info("manager started\n" << config);
 
     loop->delay([this]{ check_workers(); });
     loop->run();
@@ -438,6 +438,8 @@ excepted<void, string> Mpm::reconfigure (const Config& _newcfg) {
         auto res = create_and_bind_sockets(newcfg);
         if (!res) return res;
     }
+
+    panda_log_info("manager reconfigured\n" << config);
 
     check_timer->stop();
     check_termination_timer->stop();

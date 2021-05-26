@@ -1,4 +1,5 @@
 #pragma once
+#include <iosfwd>
 #include <panda/excepted.h>
 #include <panda/unievent/http/Server.h>
 
@@ -77,5 +78,7 @@ private:
 };
 
 using ManagerSP = iptr<Manager>;
+
+std::ostream& operator<< (std::ostream&, const Manager::Config&);
 
 }}}}
