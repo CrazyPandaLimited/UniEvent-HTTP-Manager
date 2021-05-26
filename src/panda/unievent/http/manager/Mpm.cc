@@ -92,6 +92,8 @@ void Mpm::run () {
 
     start_event();
 
+    panda_log_info("конфиг UE::HTTP::Server'a при старте");
+
     loop->delay([this]{ check_workers(); });
     loop->run();
 }
