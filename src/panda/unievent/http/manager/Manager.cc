@@ -57,19 +57,19 @@ Manager::~Manager () {
 }
 
 std::ostream& operator<< (std::ostream& os, const Manager::Config& config) {
-    os << "servers=[" << config.min_servers << "-" << config.max_servers << "]";
-    if (config.min_spare_servers) os << ", spare servers=[" << config.min_spare_servers << "-" << config.max_spare_servers << "]";
-    if (config.max_load)          os << ", load=[" << config.min_load << "-" << config.max_load << " for " << config.load_average_period << "s]";
-    os << ", mpm=" << (config.worker_model == Manager::WorkerModel::PreFork ? "prefork" : "thread");
-    os << ", bind=" << (config.bind_model == Manager::BindModel::Duplicate ? "dup" : "reuse");
-    if (config.max_requests) os << ", max_requests=" << config.max_requests;
-    os << ", min_worker_ttl=" << config.min_worker_ttl << "s";
-    if (config.activity_timeout) os << ", activity_timeout=" << config.activity_timeout << "s";
-    if (config.termination_timeout) os << ", termination_timeout=" << config.termination_timeout << "s";
-    os << ", check_interval=" << config.check_interval << "s";
-    if (config.force_worker_stop) os << ", force_worker_stop";
-    os << std::endl;
-    os << config.server;
+    os << "{";
+    os << "servers: <" << config.min_servers << "-" << config.max_servers << ">";
+    if (config.min_spare_servers) os << ", spare servers: <" << config.min_spare_servers << "-" << config.max_spare_servers << ">";
+    if (config.max_load)          os << ", load: <" << config.min_load << "-" << config.max_load << " for " << config.load_average_period << "s>";
+    os << ", mpm: " << (config.worker_model == Manager::WorkerModel::PreFork ? "prefork" : "thread");
+    os << ", bind: " << (config.bind_model == Manager::BindModel::Duplicate ? "dup" : "reuse");
+    if (config.max_requests) os << ", max_requests: " << config.max_requests;
+    os << ", min_worker_ttl: " << config.min_worker_ttl << "s";
+    if (config.activity_timeout) os << ", activity_timeout: " << config.activity_timeout << "s";
+    if (config.termination_timeout) os << ", termination_timeout: " << config.termination_timeout << "s";
+    os << ", check_interval: " << config.check_interval << "s";
+    if (config.force_worker_stop) os << ", force_worker_stop: true";
+    os << ", server: " << config.server;
     return os;
 }
 

@@ -92,7 +92,7 @@ void Mpm::run () {
 
     start_event();
 
-    panda_log_info("manager started\n" << config);
+    panda_log_info("manager started with config:\n" << panda::log::prettify_json{config});
 
     loop->delay([this]{ check_workers(); });
     loop->run();
@@ -439,7 +439,7 @@ excepted<void, string> Mpm::reconfigure (const Config& _newcfg) {
         if (!res) return res;
     }
 
-    panda_log_info("manager reconfigured\n" << config);
+    panda_log_info("manager reconfigured with config:\n" << panda::log::prettify_json{config});
 
     check_timer->stop();
     check_termination_timer->stop();
